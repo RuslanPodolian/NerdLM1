@@ -90,15 +90,15 @@ class FeedForward(nn.Module):
         return self.fc2(self.dropout(F.relu(self.fc1(x))))
 
 class DeepTransformer(nn.Module):
-    def __init__(self, d_model: int, num_heads: int, num_layers_gru: int, vocab_size: int, d_ff: int = 2048, dropout_rate: float = 0.1,):
+    def __init__(self, d_model: int, num_heads: int, num_layers_gru: int, vocab_size: int, d_ff: int = 2048, dropout_rate: float = 0.1, num_attention_heads: int = 8):
         super(DeepTransformer, self).__init__()
         self.device = device = "cuda" if torch.cuda.is_available() else "cpu"
         self.d_model = d_model
         self.num_heads = num_heads
         self.input_preprocessing = InputPreprocessing(d_model, vocab_size).to(device)
         self.fc = nn.Linear(d_model, vocab_size).to(device)
-        self.deep_multi_head_attention = DeepMultiHeadAttention(d_model, num_heads, num_layers_gru, dropout_rate).to(device)
-        self.multi_head_attention = MultiHeadAttention(d_model, num_heads, dropout_rate, device).to(device)
+        self.deep_multi_head_attention = nn.ModuleList([DeepMultiHeadAttention(d_model, num_heads, num_layers_gru, dropout_rate).to(device) for _ in range(num_attention_heads)])
+        self.multi_head_attention = nn.ModuleList([MultiHeadAttention(d_model, num_heads, dropout_rate, device).to(device) for _ in range(num_attention_heads)])
         self.feed_forward = FeedForward(d_model, d_ff, dropout_rate).to(device)
         self.norm1 = nn.LayerNorm(d_model, eps=1e-6).to(device)
         self.norm2 = nn.LayerNorm(d_model, eps=1e-6).to(device)
@@ -122,7 +122,7 @@ class DeepTransformer(nn.Module):
         return F.log_softmax(self.fc(x), dim=-1), x_mask
 
 if __name__ == "__main__":
-    deep_transformer = DeepTransformer(d_model=512, num_heads=8, num_layers_gru=6, vocab_size=10000, device='cpu')
+    deep_transformer = DeepTransformer(d_model=512, num_heads=8, num_layers_gru=8, vocab_size=10000)
     total_params = sum(p.numel() for p in deep_transformer.parameters())
     trainable_params = sum(p.numel() for p in deep_transformer.parameters() if p.requires_grad)
     print(f"Total params: {total_params:,}")
